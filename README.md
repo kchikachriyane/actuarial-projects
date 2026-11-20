@@ -1,7 +1,7 @@
 # Actuarial & Risk Projects – Riyane Kchikach
 
 Final-year MSc Finance & Actuarial Science student (University Hassan I, graduating June 2027), looking for a **Graduate Actuarial Analyst** role from September 2027 in the UK, Ireland, Europe or Canada.
-[LinkedIn](https://www.linkedin.com/in/riyanekchikach) · riyanekchikach02@gmail.com
+[LinkedIn](https://www.linkedin.com/in/riyanekchikach) · riyane.kchikach@outlook.com
 
 ### ▶ [Live demo: Non-Life Reserving Dashboard](https://kchikachriyane.github.io/actuarial-projects/Non-Life-Reserving-Dashboard/)
 
