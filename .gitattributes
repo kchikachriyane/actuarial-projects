@@ -1,0 +1,2 @@
+# Count the dashboard logic (JavaScript) and Python, not the HTML shell
+*.html linguist-detectable=false
