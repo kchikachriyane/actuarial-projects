@@ -9,11 +9,17 @@ An interactive Power BI dashboard analyzing **1,000 synthetic car insurance poli
 The report consists of two pages:
 
 ### Page 1 — Risk & Mileage Analysis
+
+![Accidents and mileage page](screenshots/accidents-and-mileage.png)
+
 - **Previous Accidents vs Premium by Driver Age** — dual-axis chart showing the correlation between accident history and premium levels across age groups
 - **Annual Mileage by Car Age** — trend analysis of mileage exposure across vehicle lifecycle
 - **KPIs** — Total Previous Accidents: **2,568** | Total Premium Portfolio: **$493,740**
 
 ### Page 2 — Premium Distribution
+
+![Premium by driver age and car age page](screenshots/premium-by-driver-and-car-age.png)
+
 - **Premium by Driver Age** — bar chart revealing premium peaks in the 40–45 age band
 - **Premium by Car Age** — scatter plot showing premium dispersion across vehicle age (0–35 years)
 
@@ -60,7 +66,7 @@ The report consists of two pages:
 
 ## How to View
 
-1. Download `insurance_premium.pbix`
+1. Download [`car-insurance-premium.pbix`](car-insurance-premium.pbix)
 2. Open with **Power BI Desktop** (free download at [powerbi.microsoft.com](https://powerbi.microsoft.com))
 3. Navigate between pages using the bottom tab bar
 
