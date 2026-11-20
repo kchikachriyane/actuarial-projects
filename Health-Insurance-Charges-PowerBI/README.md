@@ -1,16 +1,16 @@
-# 🏥 Health Insurance Charges Analysis
+# Health Insurance Charges Analysis
 
 > An exploratory data analysis (EDA) of health insurance charges based on demographic and regional factors.
 
 ---
 
-## 📊 Project Overview
+## Project Overview
 
 This project analyzes health insurance billing data to uncover patterns and trends in medical charges across different patient profiles. It explores how factors such as **age**, **sex**, **number of children**, and **region** influence insurance costs.
 
 ---
 
-## 📁 Dataset
+## Dataset
 
 | Feature      | Description                                      |
 |--------------|--------------------------------------------------|
@@ -22,7 +22,7 @@ This project analyzes health insurance billing data to uncover patterns and tren
 
 ---
 
-## 🔍 Key Insights
+## Key Insights
 
 - **Average charge:** $13,270 across all policyholders
 - **Total charges:** $17.76M cumulative across the dataset
@@ -33,7 +33,11 @@ This project analyzes health insurance billing data to uncover patterns and tren
 
 ---
 
-## 📈 Visualizations
+## Visualizations
+
+![Dashboard page 1](screenshots/dashboard-page-1.png)
+
+![Dashboard page 2](screenshots/dashboard-page-2.png)
 
 ### 1. Average Charges by Age & Region
 - Line chart comparing 4 US regions (Northeast, Northwest, Southeast, Southwest)
@@ -49,7 +53,7 @@ This project analyzes health insurance billing data to uncover patterns and tren
 
 ---
 
-## 🛠️ Tools & Technologies
+## Tools & Technologies
 
 - **Power BI** — Interactive dashboard & visualizations
 - **Python / Pandas** *(if applicable)* — Data cleaning & preprocessing
@@ -57,16 +61,16 @@ This project analyzes health insurance billing data to uncover patterns and tren
 
 ---
 
-## 🚀 How to Use
+## How to Use
 
 1. Clone this repository
-2. Open the `.pbix` file in Power BI Desktop (or view screenshots in `/visuals`)
+2. Open [`health-insurance-charges.pbix`](health-insurance-charges.pbix) in Power BI Desktop (or see the screenshots above)
 3. Use the **children filter** to slice data by number of dependents
 4. Explore regional and demographic trends interactively
 
 ---
 
-## 👤 Author
+## Author
 
 **Riyane KCHIKACH**  
 MSc Actuarial Science & Finance — University Hassan I, Settat  
@@ -74,7 +78,7 @@ MSc Actuarial Science & Finance — University Hassan I, Settat
 
 ---
 
-## 📌 Status
+## Status
 
 ![Status](https://img.shields.io/badge/status-completed-brightgreen)
 ![Tool](https://img.shields.io/badge/tool-Power%20BI-yellow)
