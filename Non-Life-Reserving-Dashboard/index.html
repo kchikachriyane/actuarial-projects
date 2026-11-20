@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Non-Life Reserving Dashboard – Chain Ladder, London Chain, Taylor Separation, Mack</title>
+<meta name="description" content="Interactive non-life reserving dashboard by Riyane Kchikach: Chain Ladder, London Chain, Taylor Separation and Mack reserve uncertainty (99.5% VaR) on a simulated 32-year claims triangle.">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--ink:#14213d;--muted:#5b6475;--line:#e3e7ee;--bg:#f6f8fb;--card:#fff;--cl:#1f5fbf;--lc:#e07a1f;--ts:#2a9d6f;--mk:#b8324a}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+header{background:var(--ink);color:#fff;padding:22px 28px}header h1{margin:0;font-size:22px}header p{margin:6px 0 0;color:#c9d3e6;font-size:13px}
+.note{display:inline-block;margin-top:10px;background:#ffd166;color:#3a2c00;border-radius:6px;padding:3px 9px;font-size:12px;font-weight:600}
+main{max-width:1280px;margin:0 auto;padding:20px}
+.controls{display:flex;flex-wrap:wrap;gap:18px;align-items:end;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 18px}
+.controls label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}.controls input[type=range]{width:170px}
+.controls b{color:var(--ink)}button{background:var(--ink);color:#fff;border:0;border-radius:7px;padding:8px 14px;cursor:pointer;font-weight:600}button.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:16px 0}.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;border-top:4px solid var(--c)}
+.kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}.kpi .v{font-size:22px;font-weight:700;margin-top:4px}.kpi .s{font-size:12px;color:var(--muted)}
+nav.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}nav.tabs button{background:#fff;color:var(--ink);border:1px solid var(--line)}nav.tabs button.on{background:var(--ink);color:#fff}
+.panel{display:none}.panel.on{display:block}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}.card h3{margin:0 0 4px;font-size:15px}.card .sub{color:var(--muted);font-size:12px;margin-bottom:10px}
+.chart{position:relative;height:300px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}th{position:sticky;top:0;background:#eef2f8;font-size:11px;color:var(--muted)}td:first-child,th:first-child{text-align:left;position:sticky;left:0;background:#fff}th:first-child{background:#eef2f8}
+.scroll{overflow:auto;max-height:560px;border:1px solid var(--line);border-radius:8px}.tri td{font-size:11px}td.proj{color:#7a3e00;font-style:italic}
+.formula{font-family:Cambria,Georgia,serif;background:#f3f5fa;border-radius:6px;padding:8px 10px;margin:6px 0}
+footer{color:var(--muted);font-size:12px;text-align:center;padding:20px}a{color:var(--cl)}
+@media(max-width:1000px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Non-Life Reserving Dashboard</h1>
+  <p>Chain Ladder · London Chain · Taylor Separation · Mack reserve uncertainty (99.5% VaR) — 32 accident years of paid claims</p>
+  <span class="note">Simulated data (seeded generator) — not data from any insurer · amounts in thousands</span>
+</header>
+<main>
+  <div class="controls">
+    <label>Calendar-year claims inflation <b id="vInf"></b><input id="inf" type="range" min="0" max="0.06" step="0.0025" value="0.015"></label>
+    <label>Random noise (σ) <b id="vNoise"></b><input id="noise" type="range" min="0.02" max="0.2" step="0.01" value="0.08"></label>
+    <label>Portfolio growth / year <b id="vGr"></b><input id="gr" type="range" min="-0.02" max="0.06" step="0.005" value="0.02"></label>
+    <label>Random seed <input id="seed" type="number" value="2026" style="width:90px"></label>
+    <button id="regen">Simulate new triangle</button>
+    <button class="ghost" id="csv">Download triangle (CSV)</button>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <nav class="tabs" id="tabs"></nav>
+
+  <section class="panel" data-t="Overview">
+    <div class="grid2">
+      <div class="card"><h3>Reserves by accident year</h3><div class="sub">Outstanding claims estimated by each method</div><div class="chart"><canvas id="cByAY"></canvas></div></div>
+      <div class="card"><h3>Reserve uncertainty (Mack + log-normal)</h3><div class="sub">Distribution of the total reserve, with the best estimate and the 99.5% quantile</div><div class="chart"><canvas id="cDist"></canvas></div></div>
+    </div>
+    <div class="card"><h3>Method comparison</h3><div class="sub" id="cmpNote"></div><div id="cmpTable"></div></div>
+  </section>
+
+  <section class="panel" data-t="Triangle">
+    <div class="card"><h3>Cumulative paid claims triangle</h3><div class="sub">Upper triangle = observed. Italic cells = projected by <select id="triMethod"><option value="cl">Chain Ladder</option><option value="lc">London Chain</option></select></div>
+    <div class="scroll"><table class="tri" id="triTable"></table></div></div>
+  </section>
+
+  <section class="panel" data-t="Development factors">
+    <div class="grid2">
+      <div class="card"><h3>Link ratios by development period</h3><div class="sub">Chain Ladder factor f<sub>j</sub> vs London Chain slope λ<sub>j</sub></div><div class="chart"><canvas id="cF"></canvas></div></div>
+      <div class="card"><h3>Payment pattern</h3><div class="sub">Share of the ultimate paid by each development period (Chain Ladder)</div><div class="chart"><canvas id="cPat"></canvas></div></div>
+    </div>
+    <div class="card"><h3>Factor table</h3><div class="scroll" style="max-height:360px"><table id="fTable"></table></div></div>
+  </section>
+
+  <section class="panel" data-t="Taylor separation">
+    <div class="grid2">
+      <div class="card"><h3>Calendar-year index λ<sub>k</sub></h3><div class="sub" id="tsNote"></div><div class="chart"><canvas id="cLam"></canvas></div></div>
+      <div class="card"><h3>Development proportions r<sub>j</sub></h3><div class="sub">Estimated by the separation method (sum to 1)</div><div class="chart"><canvas id="cR"></canvas></div></div>
+    </div>
+  </section>
+
+  <section class="panel" data-t="Mack model">
+    <div class="grid2">
+      <div class="card"><h3>Standard error by accident year</h3><div class="sub">Mack (1993) process + parameter error</div><div class="chart"><canvas id="cSE"></canvas></div></div>
+      <div class="card"><h3>Mack results</h3><div id="mackTable" class="scroll" style="max-height:300px"></div></div>
+    </div>
+  </section>
+
+  <section class="panel" data-t="Methodology">
+    <div class="card"><h3>Methods</h3>
+      <p><b>Chain Ladder.</b> Volume-weighted development factors, applied to the latest diagonal.</p>
+      <div class="formula">f<sub>j</sub> = Σ<sub>i</sub> C<sub>i,j+1</sub> / Σ<sub>i</sub> C<sub>i,j</sub> &nbsp;&nbsp; Ĉ<sub>i,J</sub> = C<sub>i,I−i</sub> · f<sub>I−i</sub> · … · f<sub>J−1</sub></div>
+      <p><b>London Chain</b> (Benjamin &amp; Eagles). Adds an intercept to each development step, fitted by least squares; useful when development is not proportional. Columns with fewer than 4 points fall back to the Chain Ladder factor.</p>
+      <div class="formula">C<sub>i,j+1</sub> = λ<sub>j</sub> · C<sub>i,j</sub> + α<sub>j</sub></div>
+      <p><b>Taylor arithmetic separation.</b> Splits incremental payments per claim into a development effect and a calendar-year (inflation) effect. Future calendar indices are extrapolated with a log-linear trend on the last 15 diagonals, which gives an explicit claims-inflation estimate.</p>
+      <div class="formula">X<sub>i,j</sub> / n<sub>i</sub> = r<sub>j</sub> · λ<sub>i+j</sub>, &nbsp; Σ r<sub>j</sub> = 1</div>
+      <p><b>Mack (1993).</b> Distribution-free mean squared error of the Chain Ladder reserve per accident year and in total (including covariances). The total reserve is then modelled as log-normal with the Mack mean and standard error to read off the 99.5% quantile, the Solvency II calibration level.</p>
+      <div class="formula">σ̂<sub>j</sub>² = 1/(I−j−1) · Σ<sub>i</sub> C<sub>i,j</sub> (C<sub>i,j+1</sub>/C<sub>i,j</sub> − f<sub>j</sub>)²</div>
+      <p><b>Validation.</b> The Mack implementation reproduces the published Taylor–Ashe benchmark (Mack 1993): total reserve 18,680,856 and standard error 2,447,095.</p>
+      <p><b>Simulated data.</b> Claim counts grow by a set rate; payments follow a fixed development pattern, calendar-year inflation and log-normal noise. Because the inflation used to generate the data is known, you can check how well the Taylor method recovers it.</p>
+    </div>
+  </section>
+</main>
+<footer>Built by <b>Riyane Kchikach</b> · MSc Finance &amp; Actuarial Science · <a href="https://www.linkedin.com/in/riyanekchikach">LinkedIn</a> · <a href="https://github.com/kchikachriyane/actuarial-projects">Source code</a></footer>
+
+<script>// Non-life reserving engine: simulated triangle + Chain Ladder, London Chain, Taylor Separation, Mack.
+// All data is generated from a seeded random generator: it is illustrative and does not come from any insurer.
+(function (root) {
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function normal(rng) { // Box-Muller
+    let u = 0, v = 0;
+    while (u === 0) u = rng();
+    while (v === 0) v = rng();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  // Simulate a paid triangle: claim counts per accident year x development pattern x calendar-year inflation x noise.
+  function simulate(opts) {
+    const o = Object.assign({ firstYear: 1993, n: 32, seed: 2026, inflation: 0.015, growth: 0.02, baseCount: 900, sevBase: 12, noise: 0.08 }, opts || {});
+    const rng = mulberry32(o.seed);
+    const n = o.n;
+    // development pattern: share of an accident year's payments made in development period j (sums to 1)
+    const raw = [];
+    for (let j = 0; j < n; j++) raw.push(j === 0 ? 0.30 : 0.42 * Math.pow(0.62, j - 1) + 0.0004);
+    const s = raw.reduce((a, b) => a + b, 0);
+    const pattern = raw.map(x => x / s);
+    const counts = [], inc = [], cum = [];
+    for (let i = 0; i < n; i++) {
+      counts.push(Math.round(o.baseCount * Math.pow(1 + o.growth, i) * Math.exp(0.05 * normal(rng))));
+      inc.push([]); cum.push([]);
+      let c = 0;
+      for (let j = 0; j < n - i; j++) {
+        const k = i + j; // calendar-year index
+        const x = counts[i] * o.sevBase * pattern[j] * Math.pow(1 + o.inflation, k) * Math.exp(o.noise * normal(rng) - o.noise * o.noise / 2);
+        const v = Math.round(x * 10) / 10; // thousands, one decimal
+        inc[i].push(v); c += v; cum[i].push(Math.round(c * 10) / 10);
+      }
+    }
+    const years = Array.from({ length: n }, (_, i) => o.firstYear + i);
+    return { years, counts, inc, cum, n, truth: { pattern, inflation: o.inflation } };
+  }
+
+  const latest = cum => cum.map(r => r[r.length - 1]);
+
+  // Chain Ladder (volume-weighted link ratios)
+  function chainLadder(cum) {
+    const n = cum.length, f = [];
+    for (let j = 0; j < n - 1; j++) {
+      let a = 0, b = 0;
+      for (let i = 0; i < n - j - 1; i++) { a += cum[i][j + 1]; b += cum[i][j]; }
+      f.push(b > 0 ? a / b : 1);
+    }
+    const full = cum.map((r, i) => { const x = r.slice(); for (let j = n - i; j < n; j++) x.push(x[j - 1] * f[j - 1]); return x; });
+    const ult = full.map(r => r[n - 1]);
+    const lat = latest(cum);
+    const reserve = ult.map((u, i) => u - lat[i]);
+    const cdf = []; let c = 1; for (let j = n - 2; j >= 0; j--) { c *= f[j]; cdf[j] = c; } cdf[n - 1] = 1;
+    return { f, cdf, full, ult, reserve, total: reserve.reduce((a, b) => a + b, 0) };
+  }
+
+  // London Chain (Benjamin & Eagles): C(j+1) = lambda_j * C(j) + alpha_j, fitted by OLS per development period.
+  function londonChain(cum, minPts) {
+    minPts = minPts || 4;
+    const n = cum.length, lam = [], alp = [];
+    const cl = chainLadder(cum);
+    for (let j = 0; j < n - 1; j++) {
+      const xs = [], ys = [];
+      for (let i = 0; i < n - j - 1; i++) { xs.push(cum[i][j]); ys.push(cum[i][j + 1]); }
+      if (xs.length >= minPts) {
+        const mx = xs.reduce((a, b) => a + b) / xs.length, my = ys.reduce((a, b) => a + b) / ys.length;
+        let sxy = 0, sxx = 0; for (let k = 0; k < xs.length; k++) { sxy += (xs[k] - mx) * (ys[k] - my); sxx += (xs[k] - mx) ** 2; }
+        const l = sxx > 0 ? sxy / sxx : cl.f[j];
+        lam.push(l); alp.push(my - l * mx);
+      } else { lam.push(cl.f[j]); alp.push(0); } // too few points in the tail: fall back to the Chain Ladder factor
+    }
+    const full = cum.map((r, i) => { const x = r.slice(); for (let j = n - i; j < n; j++) x.push(lam[j - 1] * x[j - 1] + alp[j - 1]); return x; });
+    const ult = full.map(r => r[n - 1]);
+    const lat = latest(cum);
+    const reserve = ult.map((u, i) => u - lat[i]);
+    return { lambda: lam, alpha: alp, full, ult, reserve, total: reserve.reduce((a, b) => a + b, 0) };
+  }
+
+  // Taylor arithmetic separation method on incremental payments per claim.
+  // s(i,j) = r_j * lambda_(i+j), sum r_j = 1. Future calendar indices extrapolated with a log-linear trend.
+  function taylorSeparation(inc, counts, fitLast) {
+    const n = inc.length;
+    fitLast = fitLast || 15;
+    const s = inc.map((r, i) => r.map(v => v / counts[i]));
+    const d = new Array(n).fill(0), v = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) for (let j = 0; j < n - i; j++) { d[i + j] += s[i][j]; v[j] += s[i][j]; }
+    const r = new Array(n).fill(0), lam = new Array(n).fill(0);
+    let sumRAfter = 0, sumLamFrom = 0;
+    for (let k = n - 1; k >= 0; k--) {
+      lam[k] = d[k] / (1 - sumRAfter);
+      sumLamFrom += lam[k];
+      r[k] = v[k] / sumLamFrom;
+      sumRAfter += r[k];
+    }
+    // log-linear trend on the last `fitLast` calendar indices
+    const ks = [], ys = [];
+    for (let k = n - fitLast; k < n; k++) { ks.push(k); ys.push(Math.log(lam[k])); }
+    const mk = ks.reduce((a, b) => a + b) / ks.length, my = ys.reduce((a, b) => a + b) / ys.length;
+    let sxy = 0, sxx = 0; for (let t = 0; t < ks.length; t++) { sxy += (ks[t] - mk) * (ys[t] - my); sxx += (ks[t] - mk) ** 2; }
+    const slope = sxy / sxx, icpt = my - slope * mk;
+    const lamFut = k => Math.exp(icpt + slope * k);
+    const reserve = [];
+    for (let i = 0; i < n; i++) { let x = 0; for (let j = n - i; j < n; j++) x += counts[i] * r[j] * lamFut(i + j); reserve.push(x); }
+    return { r, lambda: lam, inflation: Math.exp(slope) - 1, lamFut, reserve, total: reserve.reduce((a, b) => a + b, 0) };
+  }
+
+  // Mack (1993) standard error of Chain Ladder reserves.
+  function mack(cum) {
+    const n = cum.length, cl = chainLadder(cum), f = cl.f, sig2 = [];
+    for (let j = 0; j < n - 1; j++) {
+      const m = n - j - 1; // number of link ratios in column j
+      if (m > 1) {
+        let s = 0; for (let i = 0; i < m; i++) s += cum[i][j] * (cum[i][j + 1] / cum[i][j] - f[j]) ** 2;
+        sig2.push(s / (m - 1));
+      } else sig2.push(NaN);
+    }
+    // last sigma^2: Mack's extrapolation
+    for (let j = 0; j < n - 1; j++) if (isNaN(sig2[j])) {
+      const a = sig2[j - 1], b = sig2[j - 2];
+      sig2[j] = Math.min(a * a / b, Math.min(a, b));
+    }
+    const colSum = j => { let s = 0; for (let i = 0; i < n - j - 1; i++) s += cum[i][j]; return s; };
+    const S = Array.from({ length: n - 1 }, (_, j) => colSum(j));
+    const mse = [], se = [];
+    for (let i = 0; i < n; i++) {
+      const Cf = cl.full[i]; let t = 0;
+      for (let j = n - i - 1; j < n - 1; j++) t += (sig2[j] / (f[j] * f[j])) * (1 / Cf[j] + 1 / S[j]);
+      mse.push(cl.ult[i] * cl.ult[i] * t); se.push(Math.sqrt(cl.ult[i] * cl.ult[i] * t));
+    }
+    // total MSE (Mack's formula with covariance terms)
+    let tot = 0;
+    for (let i = 0; i < n; i++) {
+      tot += mse[i];
+      let sumU = 0; for (let k = i + 1; k < n; k++) sumU += cl.ult[k];
+      let t = 0; for (let j = n - i - 1; j < n - 1; j++) t += (2 * sig2[j] / (f[j] * f[j])) / S[j];
+      tot += cl.ult[i] * sumU * t;
+    }
+    const total = cl.total, seTot = Math.sqrt(tot);
+    // log-normal fitted to mean and SE
+    const s2 = Math.log(1 + (seTot / total) ** 2), mu = Math.log(total) - s2 / 2, sd = Math.sqrt(s2);
+    const z995 = 2.5758293035489, z975 = 1.959963984540054;
+    const q = z => Math.exp(mu + sd * z);
+    return { sigma2: sig2, se, seTotal: seTot, cv: seTot / total, reserve: cl.reserve, total, logn: { mu, sd }, var995: q(z995), ci95: [q(-z975), q(z975)], cl };
+  }
+
+  root.Reserving = { simulate, chainLadder, londonChain, taylorSeparation, mack, latest };
+  if (typeof module !== 'undefined') module.exports = root.Reserving;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+const R = window.Reserving;
+const fmt = (x, d = 0) => x.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = x => (x * 100).toFixed(2) + '%';
+const COL = { cl: '#1f5fbf', lc: '#e07a1f', ts: '#2a9d6f', mk: '#b8324a' };
+let S = {}, charts = {};
+const $ = id => document.getElementById(id);
+function chart(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart($(id), cfg); }
+const baseOpts = (yTitle) => ({ responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom' } }, scales: { y: { title: { display: !!yTitle, text: yTitle } } } });
+
+function run() {
+  const inf = +$('inf').value, noise = +$('noise').value, gr = +$('gr').value, seed = +$('seed').value || 1;
+  $('vInf').textContent = pct(inf); $('vNoise').textContent = noise.toFixed(2); $('vGr').textContent = pct(gr);
+  const t = R.simulate({ inflation: inf, noise, growth: gr, seed });
+  S = { t, cl: R.chainLadder(t.cum), lc: R.londonChain(t.cum), ts: R.taylorSeparation(t.inc, t.counts), mk: R.mack(t.cum) };
+  render();
+}
+function render() {
+  const { t, cl, lc, ts, mk } = S, Y = t.years;
+  const k = (l, v, s, c) => `<div class="kpi" style="--c:${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  $('kpis').innerHTML = k('Chain Ladder reserve', fmt(cl.total), 'best estimate', COL.cl) + k('London Chain reserve', fmt(lc.total), pct(lc.total / cl.total - 1) + ' vs CL', COL.lc)
+    + k('Taylor separation reserve', fmt(ts.total), pct(ts.total / cl.total - 1) + ' vs CL', COL.ts) + k('Mack standard error', fmt(mk.seTotal), 'CV ' + pct(mk.cv), COL.mk)
+    + k('99.5% VaR of reserves', fmt(mk.var995), '+' + fmt(mk.var995 - cl.total) + ' over BE', COL.mk) + k('Inflation estimate (Taylor)', pct(ts.inflation), 'simulated with ' + pct(+$('inf').value), COL.ts);
+
+  chart('cByAY', { type: 'line', data: { labels: Y, datasets: [
+    { label: 'Chain Ladder', data: cl.reserve, borderColor: COL.cl, backgroundColor: COL.cl, pointRadius: 0, borderWidth: 2 },
+    { label: 'London Chain', data: lc.reserve, borderColor: COL.lc, backgroundColor: COL.lc, pointRadius: 0, borderWidth: 2 },
+    { label: 'Taylor separation', data: ts.reserve, borderColor: COL.ts, backgroundColor: COL.ts, pointRadius: 0, borderWidth: 2 }] }, options: baseOpts('Reserve (thousands)') });
+
+  const { mu, sd } = mk.logn, lo = Math.exp(mu - 4 * sd), hi = Math.exp(mu + 4 * sd), xs = [], ys = [];
+  for (let i = 0; i <= 160; i++) { const x = lo + (hi - lo) * i / 160; xs.push(Math.round(x)); ys.push(Math.exp(-((Math.log(x) - mu) ** 2) / (2 * sd * sd)) / (x * sd * Math.sqrt(2 * Math.PI))); }
+  const near = v => xs.reduce((b, x, i) => Math.abs(x - v) < Math.abs(xs[b] - v) ? i : b, 0);
+  const iBE = near(cl.total), iV = near(mk.var995);
+  chart('cDist', { type: 'line', data: { labels: xs, datasets: [
+    { label: 'Log-normal density', data: ys, borderColor: COL.mk, backgroundColor: 'rgba(184,50,74,.12)', fill: true, pointRadius: 0, borderWidth: 2 },
+    { label: 'Best estimate', data: ys.map((y, i) => i === iBE ? y : null), pointRadius: 7, pointStyle: 'triangle', borderColor: COL.cl, backgroundColor: COL.cl, showLine: false },
+    { label: '99.5% VaR', data: ys.map((y, i) => i === iV ? y : null), pointRadius: 7, pointStyle: 'rectRot', borderColor: '#000', backgroundColor: '#000', showLine: false }] },
+    options: Object.assign(baseOpts(''), { scales: { x: { ticks: { maxTicksLimit: 8, callback: function (v) { return fmt(+this.getLabelForValue(v)); } }, title: { display: true, text: 'Total reserve (thousands)' } }, y: { display: false } } }) });
+
+  $('cmpNote').textContent = `Totals in thousands. 95% interval (log-normal): ${fmt(mk.ci95[0])} – ${fmt(mk.ci95[1])}.`;
+  const rows = [['Chain Ladder', cl.total], ['London Chain', lc.total], ['Taylor separation', ts.total]];
+  $('cmpTable').innerHTML = '<table><tr><th>Method</th><th>Total reserve</th><th>vs Chain Ladder</th><th>Within Mack 95% interval?</th></tr>' + rows.map(r => `<tr><td>${r[0]}</td><td>${fmt(r[1])}</td><td>${pct(r[1] / cl.total - 1)}</td><td>${r[1] >= mk.ci95[0] && r[1] <= mk.ci95[1] ? 'Yes' : 'No'}</td></tr>`).join('') + '</table>';
+
+  renderTri();
+  const n = t.n, dev = Array.from({ length: n - 1 }, (_, j) => `${j}→${j + 1}`);
+  chart('cF', { type: 'line', data: { labels: dev, datasets: [{ label: 'Chain Ladder f_j', data: cl.f, borderColor: COL.cl, pointRadius: 2 }, { label: 'London Chain λ_j', data: lc.lambda, borderColor: COL.lc, pointRadius: 2 }] }, options: Object.assign(baseOpts('Factor'), { scales: { y: { type: 'logarithmic', title: { display: true, text: 'Factor (log scale)' } } } }) });
+  const pat = cl.cdf.map(c => 1 / c), inc = pat.map((p, j) => j === 0 ? p : p - pat[j - 1]);
+  chart('cPat', { type: 'bar', data: { labels: Array.from({ length: n }, (_, j) => j), datasets: [{ label: 'Share of ultimate paid in period j', data: inc, backgroundColor: COL.cl }] }, options: baseOpts('Share') });
+  $('fTable').innerHTML = '<tr><th>Development</th><th>CL f_j</th><th>CDF to ultimate</th><th>London λ_j</th><th>London α_j</th><th>Mack σ²_j</th></tr>' + dev.map((d, j) => `<tr><td>${d}</td><td>${cl.f[j].toFixed(4)}</td><td>${cl.cdf[j].toFixed(4)}</td><td>${lc.lambda[j].toFixed(4)}</td><td>${fmt(lc.alpha[j], 1)}</td><td>${mk.sigma2[j].toFixed(3)}</td></tr>`).join('');
+
+  const K = Array.from({ length: n }, (_, k) => Y[0] + k);
+  $('tsNote').textContent = `Observed calendar-year indices and log-linear trend: implied claims inflation ${pct(ts.inflation)} a year (data simulated with ${pct(+$('inf').value)}).`;
+  chart('cLam', { type: 'line', data: { labels: K, datasets: [{ label: 'λ_k estimated', data: ts.lambda, borderColor: COL.ts, pointRadius: 2, borderWidth: 2 }, { label: 'Log-linear trend', data: K.map((_, k) => ts.lamFut(k)), borderColor: '#999', borderDash: [6, 4], pointRadius: 0 }] }, options: baseOpts('Index (per claim)') });
+  chart('cR', { type: 'bar', data: { labels: Array.from({ length: n }, (_, j) => j), datasets: [{ label: 'r_j', data: ts.r, backgroundColor: COL.ts }] }, options: baseOpts('Proportion') });
+
+  chart('cSE', { type: 'bar', data: { labels: Y, datasets: [{ label: 'Mack standard error', data: mk.se, backgroundColor: COL.mk }, { type: 'line', label: 'Coefficient of variation', data: mk.se.map((s, i) => mk.reserve[i] > 0 ? s / mk.reserve[i] : 0), borderColor: '#333', yAxisID: 'y2', pointRadius: 0 }] }, options: Object.assign(baseOpts(''), { scales: { y: { title: { display: true, text: 'Standard error (thousands)' } }, y2: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => (v * 100).toFixed(0) + '%' } } } }) });
+  $('mackTable').innerHTML = '<table><tr><th>Accident year</th><th>Latest paid</th><th>Ultimate</th><th>Reserve</th><th>Std error</th><th>CV</th></tr>' + Y.map((y, i) => `<tr><td>${y}</td><td>${fmt(R.latest(t.cum)[i])}</td><td>${fmt(cl.ult[i])}</td><td>${fmt(cl.reserve[i])}</td><td>${fmt(mk.se[i])}</td><td>${cl.reserve[i] > 0 ? pct(mk.se[i] / cl.reserve[i]) : '–'}</td></tr>`).join('') + `<tr><td><b>Total</b></td><td></td><td></td><td><b>${fmt(cl.total)}</b></td><td><b>${fmt(mk.seTotal)}</b></td><td><b>${pct(mk.cv)}</b></td></tr></table>`;
+}
+function renderTri() {
+  const { t } = S, m = $('triMethod').value === 'lc' ? S.lc : S.cl, n = t.n;
+  let h = '<tr><th>AY \\ dev</th>' + Array.from({ length: n }, (_, j) => `<th>${j}</th>`).join('') + '<th>Ultimate</th><th>Reserve</th></tr>';
+  const maxv = Math.max(...m.full.map(r => r[n - 1]));
+  t.years.forEach((y, i) => {
+    h += `<tr><td>${y}</td>` + m.full[i].map((v, j) => { const a = 0.08 + 0.42 * v / maxv; return j < n - i ? `<td style="background:rgba(31,95,191,${a.toFixed(2)})">${fmt(v)}</td>` : `<td class="proj" style="background:rgba(224,122,31,${(a * 0.7).toFixed(2)})">${fmt(v)}</td>`; }).join('') + `<td><b>${fmt(m.ult[i])}</b></td><td>${fmt(m.reserve[i])}</td></tr>`;
+  });
+  $('triTable').innerHTML = h;
+}
+function csv() {
+  const { t } = S; let s = 'accident_year,claim_count,' + Array.from({ length: t.n }, (_, j) => 'dev_' + j).join(',') + '\n';
+  t.years.forEach((y, i) => { s += y + ',' + t.counts[i] + ',' + t.cum[i].join(',') + ',' + Array(t.n - t.cum[i].length).fill('').join(',') + '\n'; });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([s], { type: 'text/csv' })); a.download = 'simulated_paid_triangle.csv'; a.click();
+}
+const names = [...document.querySelectorAll('.panel')].map(p => p.dataset.t);
+$('tabs').innerHTML = names.map((n, i) => `<button data-i="${i}" class="${i ? '' : 'on'}">${n}</button>`).join('');
+document.querySelectorAll('.panel')[0].classList.add('on');
+$('tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; document.querySelectorAll('#tabs button').forEach(x => x.classList.remove('on')); b.classList.add('on'); document.querySelectorAll('.panel').forEach((p, i) => p.classList.toggle('on', i === +b.dataset.i)); });
+['inf', 'noise', 'gr'].forEach(id => $(id).addEventListener('input', run));
+$('regen').onclick = () => { $('seed').value = Math.floor(Math.random() * 100000); run(); };
+$('seed').addEventListener('change', run); $('triMethod').addEventListener('change', renderTri); $('csv').onclick = csv;
+run();
+</script>
+</body>
+</html>
