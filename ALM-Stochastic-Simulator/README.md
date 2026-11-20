@@ -111,7 +111,7 @@ git clone https://github.com/kchikachriyane/ALM-Stochastic-Simulator.git
 cd ALM-Stochastic-Simulator
 
 # Install dependencies
-pip install numpy matplotlib
+pip install -r requirements.txt
 
 # Run the simulation
 python main.py
