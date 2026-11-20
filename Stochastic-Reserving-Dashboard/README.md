@@ -2,7 +2,7 @@
 
 Interactive non-life reserving dashboard that takes a paid claims triangle and produces best-estimate reserves, a comparison of methods and a measure of reserve uncertainty.
 
-**Data:** a 9-accident-year teaching triangle (2016–2024) with premiums, in MAD. It is illustrative data, not data from any insurer.
+**Data:** a 9-accident-year triangle (2016–2024) with premiums, in MAD, with altered figures, provided for training during my internship. It does not reflect any insurer's actual results.
 
 ## What it does
 
