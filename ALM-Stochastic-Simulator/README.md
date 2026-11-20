@@ -129,4 +129,4 @@ python main.py
 
 **Riyane KCHIKACH**  
 MSc Actuarial Science & Finance — University Hassan I, Settat  
-[LinkedIn](https://www.linkedin.com/in/riyanekchikach/) | [Email](mailto:riyanekchikach02@gmail.com)
+[LinkedIn](https://www.linkedin.com/in/riyanekchikach/) | [Email](mailto:riyane.kchikach@outlook.com)
